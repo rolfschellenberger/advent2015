@@ -95,5 +95,4 @@ class Password(var input: CharArray) {
         const val MAX_CHAR = 'z'
         val FORBIDDEN_LETTERS = setOf('i', 'o', 'l')
     }
-
 }
