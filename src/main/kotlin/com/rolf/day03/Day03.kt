@@ -53,8 +53,10 @@ class Day03 : Day() {
         val santa = Point(500, 500)
         val robot = Point(500, 500)
         val directions = splitLine(lines[0], chunkSize = 1)
-        val santaDirections = getDirections(directions, 2, 0)
-        val robotDirections = getDirections(directions, 2, 1)
+        val groupedDirections =
+            directions.mapIndexed { index, s -> index to s }.groupBy({ it.first % 2 }, { it.second })
+        val santaDirections = groupedDirections[0]!!
+        val robotDirections = groupedDirections[1]!!
 
         move(grid, santa, santaDirections)
         move(grid, robot, robotDirections)
