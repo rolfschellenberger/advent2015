@@ -16,8 +16,8 @@ class Day14 : Day() {
         val deer = parseDeer(lines)
 
         var maxDistance = 0
-        for (deer in deer) {
-            val distance = deer.distanceAfter(2503)
+        for (d in deer) {
+            val distance = d.distanceAfter(2503)
             maxDistance = maxOf(maxDistance, distance)
         }
         println(maxDistance)
