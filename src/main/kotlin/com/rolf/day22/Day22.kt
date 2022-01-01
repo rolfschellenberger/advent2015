@@ -1,7 +1,6 @@
 package com.rolf.day22
 
 import com.rolf.Day
-import com.rolf.util.getPermutations
 
 fun main() {
     Day22().run()
@@ -12,86 +11,57 @@ class Day22 : Day() {
         return 22
     }
 
+    private var minMana = Int.MAX_VALUE
+
     override fun solve1(lines: List<String>) {
-        val bossHP = 71
-        val bossDamage = 10
-        val hp = 50
-        val mana = 500
-
-
-
-        val boss = Player("Boss", bossHP, bossDamage, 0, 0, emptyList())
-        val me = Player(
-            "Me", hp, 0, 0, mana, listOf(
-                MagicMissile(),
-                Drain(),
-                Shield(),
-                Poison(),
-                Recharge()
-            )
-        )
-        // 20 turns?
-        val uniqueSpellOptions = listOf("Drain", "Shield", "Poison", "Recharge", "Magic Missile")
-        val startSpells = listOf(
-            "Shield",
-            "Recharge",
-            "Poison",
-            "Shield",
-            "Recharge",
-            "Poison",
-            "Shield",
-            "Recharge",
-            "Poison",
-            "Shield",
-            "Recharge",
-            "Poison",
-            "Shield",
-            "Recharge"
-        )
-        val s = startSpells + buildSpellOptions(uniqueSpellOptions, 2)
-        getPermutations(s, ::playGame)
-    }
-
-    var minMana = Int.MAX_VALUE
-
-    private fun playGame(spells: List<String>) {
-        val bossHP = 71
-        val bossDamage = 10
-        val hp = 50
-        val mana = 500
-        val boss = Player("Boss", bossHP, bossDamage, 0, 0, emptyList())
-        val me = Player(
-            "Me", hp, 0, 0, mana, listOf(
-                MagicMissile(),
-                Drain(),
-                Shield(),
-                Poison(),
-                Recharge()
-            )
-        )
-//        println(spells.toMutableList())
-        val game = Game(me, boss, spells.toMutableList())
-        val winner = game.play()
-        if (winner == me) {
-            if (game.manaUsed < minMana) {
-                minMana = game.manaUsed
-                println(spells)
-                println(game.manaUsed)
-            }
-            // 2402 is too high
-            // 2166 is too high
-        }
-    }
-
-    private fun buildSpellOptions(uniqueSpellOptions: List<String>, size: Int): List<String> {
-        val result = mutableListOf<String>()
-        for (i in 0 until size) {
-            result.addAll(uniqueSpellOptions)
-        }
-        return result
+        println(solve(false))
     }
 
     override fun solve2(lines: List<String>) {
+        println(solve(true))
+    }
+
+    private fun solve(hard: Boolean): Int {
+        val bossHP = 71
+        val bossDamage = 10
+        val hp = 50
+        val mana = 500
+
+        val boss = Player("Boss", bossHP, bossDamage, 0, 0, emptyList())
+        val me = Player(
+            "Me", hp, 0, 0, mana, listOf(
+                MagicMissile(),
+                Drain(),
+                Shield(),
+                Poison(),
+                Recharge()
+            )
+        )
+
+        val game = Game(me, boss, hard)
+        minMana = Int.MAX_VALUE
+        turn(game)
+        return minMana
+    }
+
+    private fun turn(game: Game) {
+        if (game.manaUsed < minMana) {
+            val uniqueSpellOptions = listOf("Drain", "Shield", "Poison", "Recharge", "Magic Missile")
+            for (spell in uniqueSpellOptions) {
+                val gameCopy = game.deepCopy()
+                val winner = gameCopy.turn(spell)
+                val winner2 = gameCopy.turn(null)
+                if (winner == null && winner2 == null) {
+                    // No winner? Continue
+                    turn(gameCopy)
+                } else {
+                    // Someone won
+                    if (winner == gameCopy.me || (winner != gameCopy.boss && winner2 == gameCopy.me)) {
+                        minMana = minOf(minMana, gameCopy.manaUsed)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -110,20 +80,40 @@ data class Player(
     override fun toString(): String {
         return "Player(name='$name', hp=$hp, damage=$damage, armor=$armor, mana=$mana)"
     }
+
+    fun deepCopy(): Player {
+        val copy = this.copy()
+        copy.spells = spells.map { it.deepCopy() }
+        return copy
+    }
 }
 
-class Game(private val me: Player, private val boss: Player, private val spells: MutableList<String>) {
+class Game(
+    val me: Player,
+    val boss: Player,
+    private val hard: Boolean,
+    var manaUsed: Int = 0,
+    var turn: Int = 0,
+    private val usedSpells: MutableList<String> = mutableListOf()
+) {
 
-    var manaUsed = 0
-
-    fun play(): Player {
-        return play(me, boss)
+    fun turn(spell: String?): Player? {
+        val winner = if (turn % 2 == 0) {
+            turn(me, boss, spell)
+        } else {
+            turn(boss, me, spell)
+        }
+        turn++
+        return winner
     }
 
-    private fun play(attacker: Player, defender: Player): Player {
-//        println("Turn: ${attacker.name}")
-//        println(me)
-//        println(boss)
+    private fun turn(attacker: Player, defender: Player, spellToCast: String?): Player? {
+        // First lose 1 health
+        if (hard && attacker == me) {
+            me.hp -= 1
+            val winner1 = getWinner()
+            if (winner1 != null) return winner1
+        }
 
         // First the effects
         for (spell in me.spells) {
@@ -136,25 +126,19 @@ class Game(private val me: Player, private val boss: Player, private val spells:
         // If attacker has damage, just hit!
         if (attacker.damage > 0) {
             val hp = maxOf(1, attacker.damage - defender.armor)
-//            println("Attack with $hp damage")
             defender.hp -= hp
         }
         // Otherwise, do the mana play
         else {
-            if (spells.isEmpty()) {
-//                println("No more spells remaining")
-                return boss
-            }
-            val spell = spells.removeAt(0)
-//            println(spell)
-            val mana = attacker.getSpell(spell).cast(me, boss)
+            val mana = attacker.getSpell(spellToCast!!).cast(me, boss)
+            usedSpells.add(spellToCast)
             if (mana < 0) {
-//                println("$spell could not be casted")
                 return boss
             }
             manaUsed += mana
         }
-        return play(defender, attacker)
+
+        return getWinner()
     }
 
     private fun getWinner(): Player? {
@@ -165,6 +149,14 @@ class Game(private val me: Player, private val boss: Player, private val spells:
             return me
         }
         return null
+    }
+
+    fun deepCopy(): Game {
+        return Game(me.deepCopy(), boss.deepCopy(), hard, manaUsed, turn, usedSpells.toMutableList())
+    }
+
+    override fun toString(): String {
+        return "Game(me=$me, boss=$boss, manaUsed=$manaUsed, turn=$turn, usedSpells=$usedSpells)"
     }
 }
 
@@ -184,6 +176,8 @@ abstract class Spell(val name: String, var timer: Int = 0) {
     protected abstract fun endEffect(me: Player, boss: Player)
 
     abstract fun cast(me: Player, boss: Player): Int
+
+    abstract fun deepCopy(): Spell
 }
 
 class MagicMissile : Spell("Magic Missile") {
@@ -202,6 +196,12 @@ class MagicMissile : Spell("Magic Missile") {
             return 53
         }
         return -1
+    }
+
+    override fun deepCopy(): Spell {
+        val spell = MagicMissile()
+        spell.timer = timer
+        return spell
     }
 }
 
@@ -222,6 +222,12 @@ class Drain : Spell("Drain") {
             return 73
         }
         return -1
+    }
+
+    override fun deepCopy(): Spell {
+        val spell = Drain()
+        spell.timer = timer
+        return spell
     }
 }
 
@@ -244,6 +250,12 @@ class Shield : Spell("Shield") {
         }
         return -1
     }
+
+    override fun deepCopy(): Spell {
+        val spell = Shield()
+        spell.timer = timer
+        return spell
+    }
 }
 
 class Poison : Spell("Poison") {
@@ -263,6 +275,12 @@ class Poison : Spell("Poison") {
         }
         return -1
     }
+
+    override fun deepCopy(): Spell {
+        val spell = Poison()
+        spell.timer = timer
+        return spell
+    }
 }
 
 class Recharge : Spell("Recharge") {
@@ -281,5 +299,11 @@ class Recharge : Spell("Recharge") {
             return 229
         }
         return -1
+    }
+
+    override fun deepCopy(): Spell {
+        val spell = Recharge()
+        spell.timer = timer
+        return spell
     }
 }
