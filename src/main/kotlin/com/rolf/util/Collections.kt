@@ -83,12 +83,19 @@ fun <T> getCombinations(
     return result
 }
 
-fun <T> getCombinations(options: List<T>, onNextCombination: (List<T>) -> Unit, prefix: List<T> = emptyList()) {
-    // TODO: Early termination function here on prefix?
+fun <T> getCombinations(
+    options: List<T>,
+    onNextCombination: (List<T>) -> Unit,
+    earlyTermination: (List<T>) -> Boolean = { _ -> false },
+    prefix: List<T> = emptyList()
+) {
+    if (earlyTermination(prefix)) {
+        return
+    }
     for (index in 1..options.size) {
         val current = options[index - 1]
         val newOptions = options.subList(index, options.size)
-        getCombinations(newOptions, onNextCombination, prefix + current)
+        getCombinations(newOptions, onNextCombination, earlyTermination, prefix + current)
     }
     if (prefix.isNotEmpty()) {
         onNextCombination(prefix)

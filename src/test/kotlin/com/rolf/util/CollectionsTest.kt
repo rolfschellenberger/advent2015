@@ -125,5 +125,24 @@ class CollectionsTest {
                 listOf("d")
             ), results
         )
+
+        fun earlyTerminate(options: List<String>): Boolean {
+            return options.contains("b")
+        }
+
+        results.clear()
+        getCombinations(listOf("a", "b", "c", "d"), ::doIt, ::earlyTerminate)
+        assertEquals(7, results.size)
+        assertEquals(
+            listOf(
+                listOf("a", "c", "d"),
+                listOf("a", "c"),
+                listOf("a", "d"),
+                listOf("a"),
+                listOf("c", "d"),
+                listOf("c"),
+                listOf("d")
+            ), results
+        )
     }
 }
