@@ -82,3 +82,15 @@ fun <T> getCombinations(
     cache[key] = result
     return result
 }
+
+fun <T> getCombinations(options: List<T>, onNextCombination: (List<T>) -> Unit, prefix: List<T> = emptyList()) {
+    // TODO: Early termination function here on prefix?
+    for (index in 1..options.size) {
+        val current = options[index - 1]
+        val newOptions = options.subList(index, options.size)
+        getCombinations(newOptions, onNextCombination, prefix + current)
+    }
+    if (prefix.isNotEmpty()) {
+        onNextCombination(prefix)
+    }
+}
